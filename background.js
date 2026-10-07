@@ -144,13 +144,17 @@ function formatSpeedString(bytesPerSecond) {
   return `${kbs.toFixed(0)}K`;
 }
 
-// --- 6. Popup Inter-Process Message Receiver ---
+// --- 6. Extended Message Receiver (For Popup Pipelines & Options Refresh Signals) ---
 browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'popup-rpc-request') {
     makeRpcRequest(message.method, message.args)
       .then(result => sendResponse(result))
       .catch(() => sendResponse(null));
-    return true; // Keep message channel open for asynchronous response handling
+    return true; // Asynchronous callback confirmation bypass
+  }
+  
+  if (message.action === 'trigger-immediate-poll') {
+    updateTransmissionStats(); // Refresh badge instantly without waiting for the 1-minute alarm
   }
 });
 
