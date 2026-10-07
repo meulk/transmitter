@@ -143,3 +143,14 @@ function formatSpeedString(bytesPerSecond) {
   }
   return `${kbs.toFixed(0)}K`;
 }
+
+// --- 6. Popup Inter-Process Message Receiver ---
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'popup-rpc-request') {
+    makeRpcRequest(message.method, message.args)
+      .then(result => sendResponse(result))
+      .catch(() => sendResponse(null));
+    return true; // Keep message channel open for asynchronous response handling
+  }
+});
+
