@@ -1,3 +1,174 @@
+/**
+ * Transmitter - Manifest V3 Popup Interface
+ * Complete drop-in replacement for popup.js
+ */
+
+const browserAPI = typeof chrome !== 'undefined' ? chrome : browser;
+
+// Local cache array to allow fast local string filtering without refetching from the API
+let cachedTorrentsList = [];
+
+// --- 1. UI Initializer on Document Load ---
+document.addEventListener('DOMContentLoaded', async () => {
+  setupSearchFilter();
+  await refreshPopupUI();
+});
+
+// --- 2. Fetch and Render Engine ---
+async function refreshPopupUI() {
+  const torrentListContainer = document.getElementById('torrents-list');
+  if (!torrentListContainer) return;
+
+  // Visual feedback while communicating with Transmission daemon
+  torrentListContainer.innerHTML = '<div class="loading-state">Loading transfers...</div>';
+
+  try {
+    // Re-use the decoupled communication channel built into our background service worker
+    const response = await sendRpcMessageToBackground('torrent-get', {
+      fields: ['id', 'name', 'status', 'percentDone', 'rateDownload', 'rateUpload', 'totalSize', 'error', 'errorString']
+    });
+
+    if (!response || !response.torrents) {
+      renderErrorMessage('Could not retrieve active torrents. Please verify your connection status and server configurations.');
+      return;
+    }
+
+    cachedTorrentsList = response.torrents;
+    renderTorrentElements(cachedTorrentsList);
+
+  } catch (error) {
+    console.error('Transmitter Popup: UI render sequence failed:', error);
+    renderErrorMessage('A structural communication error occurred.');
+  }
+}
+
+// --- 3. Dynamic DOM Builder ---
+function renderTorrentElements(torrents) {
+  const torrentListContainer = document.getElementById('torrents-list');
+  if (!torrentListContainer) return;
+
+  if (torrents.length === 0) {
+    torrentListContainer.innerHTML = '<div class="empty-state">No active downloads or seeds.</div>';
+    return;
+  }
+
+  // Build a memory fragment layout tree to minimize structural DOM changes and layout thrashing
+  const documentFragment = document.createDocumentFragment();
+
+  torrents.forEach(torrent => {
+    const itemRow = document.createElement('div');
+    itemRow.className = `torrent-item status-${torrent.status}`;
+    itemRow.dataset.torrentId = torrent.id;
+
+    // Convert transmission core engine numeric status identifiers to modern human tags
+    const statusLabel = mapStatusCodeToText(torrent.status);
+    const progressPercent = (torrent.percentDone * 100).toFixed(1);
+    
+    // Performance metrics conversions
+    const downSpeed = formatSpeed(torrent.rateDownload);
+    const upSpeed = formatSpeed(torrent.rateUpload);
+    const speedString = torrent.rateDownload > 0 ? ` ↓ ${downSpeed}` : '';
+
+    itemRow.innerHTML = `
+      <div class="torrent-meta-row">
+        <span class="torrent-title" title="${escapeHtml(torrent.name)}">${escapeHtml(torrent.name)}</span>
+        <span class="torrent-speeds">${speedString}</span>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" style="width: ${progressPercent}%"></div>
+      </div>
+      <div class="torrent-status-row">
+        <span>${progressPercent}% • ${statusLabel}</span>
+        <span>${formatBytes(torrent.totalSize)}</span>
+      </div>
+    `;
+
+    documentFragment.appendChild(itemRow);
+  });
+
+  torrentListContainer.innerHTML = '';
+  torrentListContainer.appendChild(documentFragment);
+}
+
+// --- 4. Interactive Search Filter Logic ---
+function setupSearchFilter() {
+  const searchInput = document.getElementById('search-filter-input');
+  if (!searchInput) return;
+
+  // High performance filter sweep: immediately toggles visibility using a CSS flag
+  searchInput.addEventListener('input', (event) => {
+    const query = event.target.value.toLowerCase().trim();
+    const rows = document.querySelectorAll('.torrent-item');
+
+    rows.forEach(row => {
+      const titleText = row.querySelector('.torrent-title')?.textContent.toLowerCase() || '';
+      if (titleText.includes(query)) {
+        row.style.display = ''; // Restore visibility
+      } else {
+        row.style.display = 'none'; // Hide non-matching elements instantly
+      }
+    });
+  });
+}
+
+// --- 5. Message Passing Bridge to MV3 Service Worker ---
+async function sendRpcMessageToBackground(method, args) {
+  // Rather than duplicating fetch calls here, we securely pipeline queries through background.js
+  return new Promise((resolve) => {
+    browserAPI.runtime.sendMessage({ action: 'popup-rpc-request', method, args }, (response) => {
+      if (browserAPI.runtime.lastError) {
+        console.warn('Transmitter Background Worker was asleep. Retrying pipeline connection...');
+        resolve(null);
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
+// --- 6. Helper Serialization Modules ---
+function mapStatusCodeToText(code) {
+  const codes = {
+    0: 'Paused',
+    1: 'Waiting to Verify',
+    2: 'Verifying Files',
+    3: 'Waiting to Download',
+    4: 'Downloading',
+    5: 'Waiting to Seed',
+    6: 'Seeding'
+  };
+  return codes[code] ?? 'Unknown State';
+}
+
+function formatSpeed(bytesPerSecond) {
+  if (!bytesPerSecond || bytesPerSecond === 0) return '0 KB/s';
+  const kbs = bytesPerSecond / 1024;
+  return kbs > 1024 ? `${(kbs / 1024).toFixed(1)} MB/s` : `${kbs.toFixed(1)} KB/s`;
+}
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function escapeHtml(string) {
+  return string
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function renderErrorMessage(message) {
+  const container = document.getElementById('torrents-list');
+  if (container) {
+    container.innerHTML = `<div class="error-state-alert">${escapeHtml(message)}</div>`;
+  }
+}
 'use strict'
 
 const torrentsPane = document.getElementById('torrents-pane')
