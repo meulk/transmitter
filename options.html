@@ -1,4 +1,98 @@
 <!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Transmitter Configurations</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #333333;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 { margin-top: 0; color: #111111; font-weight: 600; border-bottom: 1px solid #eaeaea; padding-bottom: 10px; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-weight: 500; margin-bottom: 6px; color: #555555; }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      box-sizing: border-box;
+      border: 1px solid #cccccc;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    input[type="text"]:focus { border-color: #4CAF50; outline: none; }
+    .help-text { font-size: 11px; color: #888888; margin-top: 4px; }
+    .action-row { display: flex; align-items: center; justify-content: space-between; margin-top: 25px; }
+    button {
+      padding: 9px 16px;
+      border: none;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button[type="submit"] { background-color: #4CAF50; color: white; }
+    button[type="submit"]:hover { background-color: #43a047; }
+    .btn-secondary { background-color: #e0e0e0; color: #333333; }
+    .btn-secondary:hover { background-color: #d5d5d5; }
+    .alert-box { padding: 10px; margin-bottom: 15px; border-radius: 4px; font-size: 13px; display: none; }
+    .alert-box.visible { display: block; }
+    .alert-box.success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+    .alert-box.error { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+    .status-msg { font-size: 12px; margin-top: 5px; font-weight: 500; }
+    .status-msg.loading { color: #f57c00; }
+    .status-msg.success { color: #2e7d32; }
+    .status-msg.error { color: #c62828; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Transmitter Settings</h2>
+  
+  <div id="form-status-alert" class="alert-box"></div>
+
+  <form id="options-form">
+    <div class="form-group">
+      <label for="rpc-url-input">Transmission Web Client URL</label>
+      <input type="text" id="rpc-url-input" placeholder="e.g., http://192.168.1">
+      <div class="help-text">The full browser web access address where your Transmission panel resides.</div>
+    </div>
+
+    <div class="form-group">
+      <label for="download-dir-input">Default Destination Subdirectory (Optional)</label>
+      <input type="text" id="download-dir-input" placeholder="e.g., /downloads/linux-isos/">
+      <div class="help-text">Leave completely blank to let Transmission use its own global save path configurations.</div>
+    </div>
+
+    <div class="form-group" style="margin-top: 20px; border-top: 1px dashed #eaeaea; padding-top: 15px;">
+      <label>Connection Diagnostics</label>
+      <button type="button" id="test-connection-btn" class="btn-secondary">Test Connection Parameters</button>
+      <div id="connection-test-status" class="status-msg"></div>
+    </div>
+
+    <div class="action-row">
+      <span class="help-text">Changes impact runtime cycles immediately.</span>
+      <button type="submit">Save Configurations</button>
+    </div>
+  </form>
+</div>
+
+<script src="options.js"></script>
+</body>
+</html>
+<!DOCTYPE html>
 <meta charset="utf-8">
 <link rel="stylesheet" href="options.css">
 
